@@ -6,7 +6,7 @@ function [lattice, xpos, ypos, zpos, Nplaced] = finiconf(L, h, Np, lattice, xpos
 
     nn = 0; % number of particles that have been placed = particle counter
     ntry = 0; % counter for placement attempts
-    nmax = 1000; % maximum number of attempts
+    nmax = 10000; % maximum number of attempts
 
     while (nn < Np && ntry < nmax)
         ntry = ntry + 1; % update attempt counter

@@ -5,14 +5,15 @@
 function fplot_particles(L, h, Np, xpos, ypos, zpos, Nfig)
 
     figure(Nfig); clf
-    plot3(xpos, ypos, zpos, 'ro', 'MarkerSize', 20, 'MarkerFaceColor', 'r')
+    plot3(xpos, ypos, zpos, 'ro', 'MarkerSize', 5, 'MarkerFaceColor', 'r')
     xlabel('x');
     ylabel('y');
     zlabel('z');
     axis equal
     axis([0.5 L + 0.5 0.5 L + 0.5])
     grid on
-    axis square
+    axis equal
+    set(gca, 'Projection','perspective');
     set(gca, 'Ytick', 1:L);
     set(gca, 'Xtick', 1:L);
     set(gca, 'Ztick', 1:h);

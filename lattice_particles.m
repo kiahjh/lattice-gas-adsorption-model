@@ -9,17 +9,17 @@
 clear; % clear all variables
 
 % set parameters
-L = 10; % side length of lattice
-h = 8; % height of lattice
+L = 100; % side length of lattice
+h = 20; % height of lattice
 A = L * L; % lattice area
-Np = 75; % number of particles
-J = 0.5; % absolute value of particle-particle interaction energy
-kappa = 2.0; % absolute value of particle-surface interaction energy
+Np = 2000; % number of particles
+J = 1; % absolute value of particle-particle interaction energy
+kappa = 2; % absolute value of particle-surface interaction energy
 epsnei = -J; % energy of a nearest-neighbor pair
 k = -kappa;
-Tred = 0.2; % reduced temperature kB*T/J
+Tred = 2; % reduced temperature kB*T/J
 
-iflag = 1; % illustration flag, set to zero for faster simulations
+iflag = 0; % illustration flag, set to zero for faster simulations
 iskip = Np; % gap (in elementary steps) between illustrations
 
 % check if parameters make sense
@@ -31,8 +31,8 @@ if Np > A
 end
 
 % set Monte Carlo simulation parameters
-kequilib = 100; % number of equilibration steps
-kobs = 500; % number of production steps
+kequilib = 200; % number of equilibration steps
+kobs = 2000; % number of production steps
 krun = kobs + kequilib; % total number of Monte Carlo steps
 naccpt = 0; % number of accepted moves
 
@@ -113,8 +113,8 @@ for kk = 1:krun % loop over Monte Carlo cycles
         xold = xpos(nr); % old position coordinates
         yold = ypos(nr);
         zold = zpos(nr);
-        neisum = lattice(ip(xold), yold) + lattice(is(xold), yold) + ...
-            lattice(xold, ip(yold)) + lattice(xold, is(yold));
+        neisum = lattice(ip(xold), yold, zold) + lattice(is(xold), yold, zold) + ...
+            lattice(xold, ip(yold), zold) + lattice(xold, is(yold), zold);
 
         if zold ~= 1
             neisum = neisum + lattice(xold, yold, zold - 1);
@@ -174,8 +174,8 @@ for kk = 1:krun % loop over Monte Carlo cycles
             % only runs if znew is within the bounds of the lattice (can't
             % move outside)
             if (lattice(xnew, ynew, znew) == 0) % check if lattice site is available
-                neisum = lattice(ip(xnew), ynew) + lattice(is(xnew), ynew) + ...
-                    lattice(xnew, ip(ynew)) + lattice(xnew, is(ynew));
+                neisum = lattice(ip(xnew), ynew, znew) + lattice(is(xnew), ynew, znew) + ...
+                    lattice(xnew, ip(ynew), znew) + lattice(xnew, is(ynew), znew);
 
                 if znew ~= 1
                     neisum = neisum + lattice(xnew, ynew, znew - 1);

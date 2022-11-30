@@ -9,17 +9,17 @@
 clear; % clear all variables
 
 % set parameters
-L = 10; % side length of lattice
-h = 8; % height of lattice
+L = 100; % side length of lattice
+h = 20; % height of lattice
 A = L * L; % lattice area
-Np = 25; % number of particles
-J = 1.0; % absolute value of particle-particle interaction energy
-kappa = 1.0; % absolute value of particle-surface interaction energy
+Np = 1000; % number of particles
+J = 1; % absolute value of particle-particle interaction energy
+kappa = 4; % absolute value of particle-surface interaction energy
 epsnei = -J; % energy of a nearest-neighbor pair
 k = -kappa;
-Tred = 0.5; % reduced temperature kB*T/J
+Tred = 0; % reduced temperature kB*T/J
 
-iflag = 1; % illustration flag, set to zero for faster simulations
+iflag = 0; % illustration flag, set to zero for faster simulations
 iskip = Np; % gap (in elementary steps) between illustrations
 
 % check if parameters make sense
@@ -31,14 +31,14 @@ if Np > A
 end
 
 % set Monte Carlo simulation parameters
-kequilib = 5; % number of equilibration steps
-kobs = 50; % number of production steps
+kequilib = 200; % number of equilibration steps
+kobs = 2000; % number of production steps
 krun = kobs + kequilib; % total number of Monte Carlo steps
 naccpt = 0; % number of accepted moves
 
 % Initialize random number generator
-% seed = round(sum(1000 * clock));
-seed = 17; % keep seed fixed for debugging
+seed = round(sum(1000 * clock));
+% seed = 17; % keep seed fixed for debugging
 rng(seed); % seed Matlab's random number generator
 
 % initialize arrays
@@ -75,29 +75,34 @@ for nn = 1:Np % loop over particles
     yn = ypos(nn);
     zn = zpos(nn);
     z_energies = 0;
+
     if zn ~= h
         % if particle isn't at the top, there might be a particle above it
         z_energies = z_energies + lattice(xn, yn, zn + 1);
     end
+
     if zn ~= 1
         % if particle isn't at the bottom, there might be a particle below it
         z_energies = z_energies + lattice(xn, yn, zn - 1);
     end
+
     neisum = lattice(ip(xn), yn, zn) + lattice(is(xn), yn, zn) + ...
         lattice(xn, ip(yn), zn) + lattice(xn, is(yn), zn);
     z_energies = z_energies * epsnei;
+
     if zn == 1
         % if particle is at the bottom (the adsorption surface), add
         % adsorption energy
         z_energies = z_energies + k;
     end
+
     energy = energy + 0.5 * epsnei * neisum + z_energies;
 end
 
 % plot the initial configuration
 fplot_particles(L, h, Np, xpos, ypos, zpos, 1);
 title({['Initial configuration of N_p = ', num2str(Np), ...
-    ' particles'], ['on a ', num2str(L), 'x', num2str(L), 'x', num2str(h)  ...
+    ' particles'], ['on a ', num2str(L), 'x', num2str(L), 'x', num2str(h) ...
         ' lattice, energy = ', num2str(energy)]}, ...
     'FontSize', 14)
 
@@ -108,22 +113,30 @@ for kk = 1:krun % loop over Monte Carlo cycles
         xold = xpos(nr); % old position coordinates
         yold = ypos(nr);
         zold = zpos(nr);
-        neisum = lattice(ip(xold), yold) + lattice(is(xold), yold) + ...
-            lattice(xold, ip(yold)) + lattice(xold, is(yold));
+        neisum = lattice(ip(xold), yold, zold) + lattice(is(xold), yold, zold) + ...
+            lattice(xold, ip(yold), zold) + lattice(xold, is(yold), zold);
+
         if zold ~= 1
             neisum = neisum + lattice(xold, yold, zold - 1);
         end
+
         if zold ~= h
             neisum = neisum + lattice(xold, yold, zold + 1);
         end
+
         ebefore = epsnei * neisum; % old energy of this particle
+
         if zold == 1
             % add surface interaction energy if on surface
             ebefore = ebefore + k;
         end
+
         lattice(xold, yold, zold) = 0; % clear the old lattice site
         % pick one of 6 directions for the move
         idir = ceil(rand * 6);
+
+        % decide if move can be accepted
+        aflag = 0; % acceptance flag, set to one if move is acceptedf
 
         if (idir == 1) % step right
             xnew = is(xold);
@@ -141,11 +154,11 @@ for kk = 1:krun % loop over Monte Carlo cycles
             xnew = xold;
             ynew = ip(yold);
             znew = zold;
-        elseif (idir == 5 && zold ~= h) % step up
+        elseif (idir == 5) % step up
             xnew = xold;
             ynew = yold;
             znew = zold + 1;
-        elseif (idir == 6 && zold ~= 1) % step down
+        elseif (idir == 6) % step down
             xnew = xold;
             ynew = yold;
             znew = zold - 1;
@@ -157,33 +170,40 @@ for kk = 1:krun % loop over Monte Carlo cycles
             return
         end
 
-        % decide if move can be accepted
-        aflag = 0; % acceptance flag, set to one if move is accepted
+        if znew <= h && znew >= 1
+            % only runs if znew is within the bounds of the lattice (can't
+            % move outside)
+            if (lattice(xnew, ynew, znew) == 0) % check if lattice site is available
+                neisum = lattice(ip(xnew), ynew) + lattice(is(xnew), ynew) + ...
+                    lattice(xnew, ip(ynew)) + lattice(xnew, is(ynew));
 
-        if (lattice(xnew, ynew, znew) == 0) % check if lattice site is available
-            neisum = lattice(ip(xnew), ynew) + lattice(is(xnew), ynew) + ...
-                lattice(xnew, ip(ynew)) + lattice(xnew, is(ynew));
-            if znew ~= 1
-                neisum = neisum + lattice(xnew, ynew, znew - 1);
-            end
-            if znew ~= h
-                neisum = neisum + lattice(xnew, ynew, znew + 1);
-            end
-            eafter = epsnei * neisum; % new energy of this particle
-            if znew == 1
-                % add surface interaction energy if on surface
-                eafter = eafter + k;
-            end
-            % compare energy
-            delE = eafter - ebefore; % energy difference
+                if znew ~= 1
+                    neisum = neisum + lattice(xnew, ynew, znew - 1);
+                end
 
-            if (eafter <= ebefore) % move lowers the energy, accept
-                aflag = 1;
-            else % move increases energy, calculate Boltzmann factor
-                boltz = exp(-delE / Tred); % Boltzmann factor
+                if znew ~= h
+                    neisum = neisum + lattice(xnew, ynew, znew + 1);
+                end
 
-                if rand < boltz % accept
+                eafter = epsnei * neisum; % new energy of this particle
+
+                if znew == 1
+                    % add surface interaction energy if on surface
+                    eafter = eafter + k;
+                end
+
+                % compare energy
+                delE = eafter - ebefore; % energy difference
+
+                if (eafter <= ebefore) % move lowers the energy, accept
                     aflag = 1;
+                else % move increases energy, calculate Boltzmann factor
+                    boltz = exp(-delE / Tred); % Boltzmann factor
+
+                    if rand < boltz % accept
+                        aflag = 1;
+                    end
+
                 end
 
             end
@@ -233,10 +253,21 @@ for nn = 1:Np % loop over particles
     zn = zpos(nn);
     neisum = lattice(ip(xn), yn) + lattice(is(xn), yn) + ...
         lattice(xn, ip(yn)) + lattice(xn, is(yn));
+
     if zn ~= 1
-        neisum = neisum + lattice(xn, yn)
+        neisum = neisum + lattice(xn, yn, zn - 1);
     end
+
+    if zn ~= h
+        neisum = neisum + lattice(xn, yn, zn + 1);
+    end
+
     efin = efin + 0.5 * epsnei * neisum;
+
+    if zn == 1
+        efin = efin + k;
+    end
+
 end
 
 if (efin ~= energy)
@@ -246,9 +277,9 @@ if (efin ~= energy)
 end
 
 % plot the final configuration
-fplot_particles(L, Np, xpos, ypos, 3);
+fplot_particles(L, h, Np, xpos, ypos, zpos, 3);
 title({['Final configuration after ', num2str(krun), ' MC cycles'], ...
-    ['N_p = ', num2str(Np), ', L = ', num2str(L), ...
+    ['N_p = ', num2str(Np), ', L = ', num2str(L), ', h = ', num2str(h) ...
         ', T_{red} = ', num2str(Tred), ', seed = ', num2str(seed)], ...
     ['Acceptance rate = ', num2str(100 * naccpt / (Np * krun), 3), ...
         ' %, energy = ', num2str(energy)]}, ...
