@@ -1,4 +1,4 @@
-function [coverage_ratio,heatcap] = simulate(L, h, Tred, kappa, J, Np, kobs, kequilib, iflag, pflag)
+function [coverage_ratio, energy, heatcap] = simulate(L, h, Tred, kappa, J, Np, kobs, kequilib, iflag, pflag)
 
     % set parameters
     A = L * L; % lattice area
@@ -87,7 +87,7 @@ function [coverage_ratio,heatcap] = simulate(L, h, Tred, kappa, J, Np, kobs, keq
         fplot_particles(L, h, Np, xpos, ypos, zpos, 1);
         title({['Initial configuration of N_p = ', num2str(Np), ...
             ' particles'], ['on a ', num2str(L), 'x', num2str(L), 'x', num2str(h) ...
-            ' lattice, energy = ', num2str(energy)]}, ...
+                ' lattice, energy = ', num2str(energy)]}, ...
             'FontSize', 14)
     end
 
@@ -218,10 +218,11 @@ function [coverage_ratio,heatcap] = simulate(L, h, Tred, kappa, J, Np, kobs, keq
     end % closes loop over MC cycles
 
     % calculate the average energy per particle
-    kused = [kequilib+1:krun];
+    kused = kequilib + 1:krun;
     Eppavg = mean(Epp(kused));
+    energy = Eppavg;
     % calculate the heat capacity
-    heatcap = Np*(mean(Epp(kused).*Epp(kused)) - Eppavg^2)/Tred^2;
+    heatcap = Np * (mean(Epp(kused) .* Epp(kused)) - Eppavg^2) / Tred^2;
 
     % recalculate the particle number from the lattice occupation
     Npcheck = sum(sum(sum(lattice)));
@@ -281,21 +282,21 @@ function [coverage_ratio,heatcap] = simulate(L, h, Tred, kappa, J, Np, kobs, keq
         fplot_particles(L, h, Np, xpos, ypos, zpos, 3);
         title({['Final configuration after ', num2str(krun), ' MC cycles'], ...
             ['N_p = ', num2str(Np), ', L = ', num2str(L), ', h = ', num2str(h) ...
-            ', T_{red} = ', num2str(Tred), ', seed = ', num2str(seed)], ...
+                ', T_{red} = ', num2str(Tred), ', seed = ', num2str(seed)], ...
             ['Acceptance rate = ', num2str(100 * naccpt / (Np * krun), 3), ...
-            ' %, energy = ', num2str(energy)]}, ...
-            'FontSize', 14)
+                ' %, energy = ', num2str(energy)]}, ...
+                'FontSize', 14)
 
         % plot the energy as a function of time (in MC cycles)
-        figure(4); clf
-        plot(1:krun, Epp, 'b-', 'LineWidth', 1)
-%         ylim([-2 0])
-        grid on
-        xlabel('MC cycles')
-        ylabel('Energy per particle, E/N_p (J)')
+            figure(4); clf
+            plot(1:krun, Epp, 'b-', 'LineWidth', 1)
+        %         ylim([-2 0])
+            grid on
+            xlabel('MC cycles')
+            ylabel('Energy per particle, E/N_p (J)')
         title({['Energy trajectory, T_{red} = ', num2str(Tred), ...
-            ', <E>/N_p = ', num2str(Eppavg, 3)], ...
+                ', <E>/N_p = ', num2str(Eppavg, 3)], ...
             ['N_p = ', num2str(Np), ', L = ', num2str(L), ', seed = ', ...
-            num2str(seed)]})
-        set(gca, 'FontSize', 14)
-    end
+                num2str(seed)]})
+            set(gca, 'FontSize', 14)
+            end
