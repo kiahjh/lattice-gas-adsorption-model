@@ -9,291 +9,55 @@
 clear; % clear all variables
 
 % set parameters
-L = 100; % side length of lattice
-h = 20; % height of lattice
-A = L * L; % lattice area
-Np = 2000; % number of particles
+L = 25; % side length of lattice
+h = 5; % height of lattice
+Np = 313; % number of particles
 J = 1; % absolute value of particle-particle interaction energy
-kappa = 2; % absolute value of particle-surface interaction energy
-epsnei = -J; % energy of a nearest-neighbor pair
-k = -kappa;
-Tred = 2; % reduced temperature kB*T/J
+
+Tred = 0.1; % reduced temperature kB*T/J
 
 iflag = 0; % illustration flag, set to zero for faster simulations
-iskip = Np; % gap (in elementary steps) between illustrations
-
-% check if parameters make sense
-if Np > A
-    disp('Too many particles, Np > A')
-    Np
-    A
-    return % end the program
-end
 
 % set Monte Carlo simulation parameters
-kequilib = 200; % number of equilibration steps
-kobs = 2000; % number of production steps
-krun = kobs + kequilib; % total number of Monte Carlo steps
-naccpt = 0; % number of accepted moves
+kequilib = 5000; % number of equilibration steps
+kobs = 50000; % number of production steps
 
-% Initialize random number generator
-seed = round(sum(1000 * clock));
-% seed = 17; % keep seed fixed for debugging
-rng(seed); % seed Matlab's random number generator
+kappa_vals = linspace(-5, 5, 30);
 
-% initialize arrays
-Epp = zeros(1, krun); % initialize the energy per particle to zero
-lattice = zeros(L, L, h); % set all lattice sites to 0 (empty)
-xpos = zeros(1, Np); % array for x-coordinates
-ypos = zeros(1, Np); % array for y-coordinates
-zpos = zeros(1, Np); % array for z-coordinates
-ip = zeros(1, L); is = zeros(1, L); % initialize tables for nearest neighbors
-% identify nearest neighbors (periodic boundary conditions)
-for ii = 1:L
-    ip(ii) = ii - 1;
-    is(ii) = ii + 1;
-end
+% just run this to see how it works
+kappa = 2.0;
+[coverage,heatcap] = simulate(L, h, Tred, kappa, J, Np, kobs, kequilib, 0, 1);
+coverage
+heatcap
 
-ip(1) = L;
-is(L) = 1;
+% these will graph isotherms of the coverage ratio as a function of kappa
 
-% set up an initial configuration
-[lattice, xpos, ypos, zpos, Nplaced] = finiconf(L, h, Np, lattice, xpos, ypos);
+% coverage_vals_1 = zeros(length(kappa_vals));
+% coverage_vals_2 = zeros(length(kappa_vals));
+% coverage_vals_3 = zeros(length(kappa_vals));
+% coverage_vals_4 = zeros(length(kappa_vals));
+% coverage_vals_5 = zeros(length(kappa_vals));
+% coverage_vals_6 = zeros(length(kappa_vals));
 
-if (Nplaced < Np)
-    disp('not all particles could be placed')
-    Nplaced
-    Np
-    return % end the program
-end
+% for i = 1:length(kappa_vals)
+%     coverage_vals_1(i) = simulate(L, h, 0, kappa_vals(i), J, Np, kobs, kequilib, 0, 0);
+%     coverage_vals_2(i) = simulate(L, h, 0.25, kappa_vals(i), J, Np, kobs, kequilib, 0, 0);
+%     coverage_vals_3(i) = simulate(L, h, 0.5, kappa_vals(i), J, Np, kobs, kequilib, 0, 0);
+%     coverage_vals_4(i) = simulate(L, h, 0.75, kappa_vals(i), J, Np, kobs, kequilib, 0, 0);
+%     coverage_vals_5(i) = simulate(L, h, 1, kappa_vals(i), J, Np, kobs, kequilib, 0, 0);
+%     coverage_vals_6(i) = simulate(L, h, 2, kappa_vals(i), J, Np, kobs, kequilib, 0, 0);
+% end
 
-% calculate the energy of the initial configuration
-energy = 0;
-
-for nn = 1:Np % loop over particles
-    xn = xpos(nn);
-    yn = ypos(nn);
-    zn = zpos(nn);
-    z_energies = 0;
-
-    if zn ~= h
-        % if particle isn't at the top, there might be a particle above it
-        z_energies = z_energies + lattice(xn, yn, zn + 1);
-    end
-
-    if zn ~= 1
-        % if particle isn't at the bottom, there might be a particle below it
-        z_energies = z_energies + lattice(xn, yn, zn - 1);
-    end
-
-    neisum = lattice(ip(xn), yn, zn) + lattice(is(xn), yn, zn) + ...
-        lattice(xn, ip(yn), zn) + lattice(xn, is(yn), zn);
-    z_energies = z_energies * epsnei;
-
-    if zn == 1
-        % if particle is at the bottom (the adsorption surface), add
-        % adsorption energy
-        z_energies = z_energies + k;
-    end
-
-    energy = energy + 0.5 * epsnei * neisum + z_energies;
-end
-
-% plot the initial configuration
-fplot_particles(L, h, Np, xpos, ypos, zpos, 1);
-title({['Initial configuration of N_p = ', num2str(Np), ...
-    ' particles'], ['on a ', num2str(L), 'x', num2str(L), 'x', num2str(h) ...
-        ' lattice, energy = ', num2str(energy)]}, ...
-    'FontSize', 14)
-
-for kk = 1:krun % loop over Monte Carlo cycles
-
-    for jj = 1:Np % jj counts elementary steps w/in one MC cycle
-        nr = ceil(rand * Np); % pick a particle at random
-        xold = xpos(nr); % old position coordinates
-        yold = ypos(nr);
-        zold = zpos(nr);
-        neisum = lattice(ip(xold), yold, zold) + lattice(is(xold), yold, zold) + ...
-            lattice(xold, ip(yold), zold) + lattice(xold, is(yold), zold);
-
-        if zold ~= 1
-            neisum = neisum + lattice(xold, yold, zold - 1);
-        end
-
-        if zold ~= h
-            neisum = neisum + lattice(xold, yold, zold + 1);
-        end
-
-        ebefore = epsnei * neisum; % old energy of this particle
-
-        if zold == 1
-            % add surface interaction energy if on surface
-            ebefore = ebefore + k;
-        end
-
-        lattice(xold, yold, zold) = 0; % clear the old lattice site
-        % pick one of 6 directions for the move
-        idir = ceil(rand * 6);
-
-        % decide if move can be accepted
-        aflag = 0; % acceptance flag, set to one if move is acceptedf
-
-        if (idir == 1) % step right
-            xnew = is(xold);
-            ynew = yold;
-            znew = zold;
-        elseif (idir == 2) % step left
-            xnew = ip(xold);
-            ynew = yold;
-            znew = zold;
-        elseif (idir == 3) % step front
-            xnew = xold;
-            ynew = is(yold);
-            znew = zold;
-        elseif (idir == 4) % step back
-            xnew = xold;
-            ynew = ip(yold);
-            znew = zold;
-        elseif (idir == 5) % step up
-            xnew = xold;
-            ynew = yold;
-            znew = zold + 1;
-        elseif (idir == 6) % step down
-            xnew = xold;
-            ynew = yold;
-            znew = zold - 1;
-        else
-            disp('no such direction to move in')
-            idir
-            kk
-            jj
-            return
-        end
-
-        if znew <= h && znew >= 1
-            % only runs if znew is within the bounds of the lattice (can't
-            % move outside)
-            if (lattice(xnew, ynew, znew) == 0) % check if lattice site is available
-                neisum = lattice(ip(xnew), ynew, znew) + lattice(is(xnew), ynew, znew) + ...
-                    lattice(xnew, ip(ynew), znew) + lattice(xnew, is(ynew), znew);
-
-                if znew ~= 1
-                    neisum = neisum + lattice(xnew, ynew, znew - 1);
-                end
-
-                if znew ~= h
-                    neisum = neisum + lattice(xnew, ynew, znew + 1);
-                end
-
-                eafter = epsnei * neisum; % new energy of this particle
-
-                if znew == 1
-                    % add surface interaction energy if on surface
-                    eafter = eafter + k;
-                end
-
-                % compare energy
-                delE = eafter - ebefore; % energy difference
-
-                if (eafter <= ebefore) % move lowers the energy, accept
-                    aflag = 1;
-                else % move increases energy, calculate Boltzmann factor
-                    boltz = exp(-delE / Tred); % Boltzmann factor
-
-                    if rand < boltz % accept
-                        aflag = 1;
-                    end
-
-                end
-
-            end
-
-        end
-
-        if (aflag == 1) % move is accepted update values
-            naccpt = naccpt + 1;
-            lattice(xnew, ynew, znew) = 1; % occupy new lattice site
-            xpos(nr) = xnew; % update position arrays
-            ypos(nr) = ynew;
-            zpos(nr) = znew;
-            energy = energy + delE; % update energy
-        else % move was rejected, restore state
-            lattice(xold, yold, zold) = 1; % reoccupy old lattice site
-        end
-
-        if (iflag == 1 && mod(jj, iskip) == 0)
-            fplot_particles(L, h, Np, xpos, ypos, zpos, 3);
-            pause(0.1)
-        end
-
-    end % closes loop over elementary steps
-
-    Epp(kk) = energy / Np; % store the energy value for plotting
-
-end % closes loop over MC cycles
-
-% calculate the average energy per particle
-Eppavg = mean(Epp);
-
-% recalculate the particle number from the lattice occupation
-Npcheck = sum(sum(sum(lattice)));
-
-if (Npcheck ~= Np)
-    disp('final particle numbers do not agree')
-    Np
-    Npcheck
-end
-
-% recalculate the energy of the final configuration
-efin = 0;
-
-for nn = 1:Np % loop over particles
-    xn = xpos(nn);
-    yn = ypos(nn);
-    zn = zpos(nn);
-    neisum = lattice(ip(xn), yn) + lattice(is(xn), yn) + ...
-        lattice(xn, ip(yn)) + lattice(xn, is(yn));
-
-    if zn ~= 1
-        neisum = neisum + lattice(xn, yn, zn - 1);
-    end
-
-    if zn ~= h
-        neisum = neisum + lattice(xn, yn, zn + 1);
-    end
-
-    efin = efin + 0.5 * epsnei * neisum;
-
-    if zn == 1
-        efin = efin + k;
-    end
-
-end
-
-if (efin ~= energy)
-    disp('final energy values do not agree')
-    energy
-    efin
-end
-
-% plot the final configuration
-fplot_particles(L, h, Np, xpos, ypos, zpos, 3);
-title({['Final configuration after ', num2str(krun), ' MC cycles'], ...
-    ['N_p = ', num2str(Np), ', L = ', num2str(L), ', h = ', num2str(h) ...
-        ', T_{red} = ', num2str(Tred), ', seed = ', num2str(seed)], ...
-    ['Acceptance rate = ', num2str(100 * naccpt / (Np * krun), 3), ...
-        ' %, energy = ', num2str(energy)]}, ...
-        'FontSize', 14)
-
-% plot the energy as a function of time (in MC cycles)
-    figure(4); clf
-    plot(1:krun, Epp, 'b-', 'LineWidth', 1)
-    ylim([-2 0])
-    grid on
-    xlabel('MC cycles')
-    ylabel('Energy per particle, E/N_p (J)')
-title({['Energy trajectory, T_{red} = ', num2str(Tred), ...
-        ', <E>/N_p = ', num2str(Eppavg, 3)], ...
-    ['N_p = ', num2str(Np), ', L = ', num2str(L), ', seed = ', ...
-        num2str(seed)]})
-    set(gca, 'FontSize', 14)
+% figure(5); clf
+% hold on
+% h1 = plot(kappa_vals, coverage_vals_1, 'b-', 'LineWidth', 2)
+% h2 = plot(kappa_vals, coverage_vals_2, 'g-', 'LineWidth', 2)
+% h3 = plot(kappa_vals, coverage_vals_3, 'c-', 'LineWidth', 2)
+% h4 = plot(kappa_vals, coverage_vals_4, 'm-', 'LineWidth', 2)
+% h5 = plot(kappa_vals, coverage_vals_5, 'r-', 'LineWidth', 2)
+% h6 = plot(kappa_vals, coverage_vals_5, 'k-', 'LineWidth', 2)
+% legend([h1(1), h2(1), h3(1), h4(1), h5(1), h6(1)], 'T_{red} = 0', 'T_{red} = 0.25', 'T_{red} = 0.50', 'T_{red} = 0.75', 'T_{red} = 1.0', 'T_{red} = 2.0', 'Location', 'northwest')
+% title({['Coverage ratio as a function of kappa for J = ', num2str(J), ' for different temperatures']})
+% grid on
+% xlabel('Kappa values with J=1')
+% ylabel('coverage ratio of surface')
