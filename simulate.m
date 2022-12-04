@@ -265,15 +265,7 @@ function [coverage_ratio, energy, heatcap] = simulate(L, h, Tred, kappa, J, Np, 
     %         efin
     %     end
 
-    particles_on_surface = 0;
-
-    for i = 1:L
-
-        for j = 1:L
-            particles_on_surface = particles_on_surface + lattice(i, j, 1);
-        end
-
-    end
+    particles_on_surface = sum(sum(lattice(:, :, 1)));
 
     coverage_ratio = particles_on_surface / L^2;
 
